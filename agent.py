@@ -31,6 +31,15 @@ if args.namespace:
 else:
     namespace = 'default'
 
+print(
+"""
+┌──────────────────────────────────────────────┐
+│                 KubeSage                     │
+│        Kubernetes Debugging Assistant        │
+└──────────────────────────────────────────────┘
+"""
+)
+
 ollama_model = OllamaModel(
     host="http://localhost:11434",
     model_id=os.environ['MODEL_ID']
@@ -42,7 +51,9 @@ agent = Agent(
 )
 
 pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
+print("[✔] Fetching last 200 log lines...")
 logs_context = build_agent_context(pod)
+print("[✔] Building diagnostic context...")
 prompt = f"""
 TASK:
 Determine why the pod is failing and recommend safe remediation.
@@ -51,12 +62,27 @@ CLUSTER LOGS:
 {logs_context}
 """
 
+print("[✔] Running analysis with LLM...")
 buffer = io.StringIO()
 with redirect_stdout(buffer):
     result = agent(prompt, 
                    structured_output_model=K8sAgentResult)
+print("[✔] Completed analysis with LLM...")
 
 result: K8sAgentResult = result.structured_output
 
-print("=========== KUBE SAGE ===========")
-pprint(result.model_dump())
+print(f"""
+───────────────── DIAGNOSIS ───────────────────
+
+Pod: {result.pod_name}
+Namespace: {result.namespace}
+Status: {result.overall_status}
+
+Root Cause: (Confidence: {result.root_cause.confidence})
+{"\n".join(list(map(lambda x: x , result.root_cause.contributing_factors)))}
+
+Evidence:
+{"\n".join(list(map(lambda x: x.source + ": " + x.description , result.evidence)))}
+""")
+
+# pprint(result.model_dump())
