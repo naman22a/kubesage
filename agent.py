@@ -58,4 +58,5 @@ with redirect_stdout(buffer):
 
 result: K8sAgentResult = result.structured_output
 
-pprint(result)
+print("=========== KUBE SAGE ===========")
+pprint(result.model_dump())
