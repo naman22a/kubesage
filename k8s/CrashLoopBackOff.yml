@@ -1,19 +1,11 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-    name: crashloop-demo
+    name: crashloop-pod
     namespace: default
 spec:
-    replicas: 1
-    selector:
-        matchLabels:
-            app: crashloop-demo
-    template:
-        metadata:
-            labels:
-                app: crashloop-demo
-        spec:
-            containers:
-                - name: crashloop
-                  image: busybox
-                  command: ['sh', '-c', 'echo Starting... && exit 1']
+    restartPolicy: Always
+    containers:
+        - name: crashloop
+          image: busybox
+          command: ['sh', '-c', 'echo Starting && exit 1']
