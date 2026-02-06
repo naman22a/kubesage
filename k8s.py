@@ -4,33 +4,35 @@ config.load_kube_config()
 v1 = client.CoreV1Api()
 
 
-def list_pods_with_logs(namespace="default", tail_lines=200):
-    pods = v1.list_namespaced_pod(namespace)
-    result = []
+def list_pod_with_logs(pod_name, namespace="default", tail_lines=200):
+    
+    try:
+        pods = v1.list_namespaced_pod(namespace)
+        pods_list = list(filter(lambda p: p.metadata.name == pod_name, list(pods.items)))
 
-    for pod in pods.items:
-        pod_name = pod.metadata.name
+        if len(pods_list) == 0:
+            raise Exception('Pod not found')
+    
+        pod = pods_list[0]
 
-        try:
-            log = v1.read_namespaced_pod_log(
-                name=pod_name,
-                namespace=namespace,
-                tail_lines=tail_lines,
-                timestamps=True
-            )
-        except Exception as e:
-            log = f"ERROR fetching logs: {e}"
+        log = v1.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            tail_lines=tail_lines,
+            timestamps=True
+        )
 
-        result.append({
+        return {
             "pod": pod_name,
             "phase": pod.status.phase,
             "restarts": sum(
                 cs.restart_count for cs in (pod.status.container_statuses or [])
             ),
             "logs": log
-        })
+        }
 
-    return result
+    except Exception as e:
+        print('Something went wrong', e)
 
 if __name__ == "__main__":
-    list_pods_with_logs()
+    print(list_pod_with_logs('crash-pod'))

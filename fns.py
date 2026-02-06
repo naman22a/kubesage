@@ -1,17 +1,16 @@
-def build_agent_context(pods_with_logs):
+def build_agent_context(pod_with_logs):
     lines = []
+    
+    lines.append(
+        f"[POD: {pod_with_logs['pod']} | phase={pod_with_logs['phase']} | restarts={pod_with_logs['restarts']}]"
+    )
 
-    for pod in pods_with_logs:
-        lines.append(
-            f"[POD: {pod['pod']} | phase={pod['phase']} | restarts={pod['restarts']}]"
-        )
+    if pod_with_logs["logs"]:
+        for line in pod_with_logs["logs"].splitlines():
+            lines.append(line)
+    else:
+        lines.append("<no logs available>")
 
-        if pod["logs"]:
-            for line in pod["logs"].splitlines():
-                lines.append(line)
-        else:
-            lines.append("<no logs available>")
-
-        lines.append("")
+    lines.append("")
 
     return "\n".join(lines)
