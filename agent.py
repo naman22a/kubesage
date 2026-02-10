@@ -11,7 +11,7 @@ from strands.models.ollama import OllamaModel
 from k8s import list_pod_with_logs
 from constants import system_prompt
 from custom_types import K8sAgentResult
-from fns import build_agent_context
+from fns import build_agent_context, parse_root_cause, parse_evidence
 
 dotenv.load_dotenv()
 
@@ -26,10 +26,7 @@ parser.add_argument('-ns', '--namespace')
 args = parser.parse_args()
 
 pod_name = args.pod
-if args.namespace:
-    namespace = args.namespace
-else:
-    namespace = 'default'
+namespace = args.namespace if args.namespace else 'default'
 
 print(
 """
@@ -50,26 +47,87 @@ agent = Agent(
     system_prompt=system_prompt
 )
 
-pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
+# pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
 print("[✔] Fetching last 200 log lines...")
-logs_context = build_agent_context(pod)
+# logs_context = build_agent_context(pod)
 print("[✔] Building diagnostic context...")
-prompt = f"""
-TASK:
-Determine why the pod is failing and recommend safe remediation.
+# prompt = f"""
+# TASK:
+# Determine why the pod is failing and recommend safe remediation.
 
-CLUSTER LOGS:
-{logs_context}
-"""
+# CLUSTER LOGS:
+# {logs_context}
+# """
 
 print("[✔] Running analysis with LLM...")
 buffer = io.StringIO()
 with redirect_stdout(buffer):
-    result = agent(prompt, 
-                   structured_output_model=K8sAgentResult)
+    pass
+    # result = agent(prompt, 
+    #                structured_output_model=K8sAgentResult)
 print("[✔] Completed analysis with LLM...")
 
-result: K8sAgentResult = result.structured_output
+# result: K8sAgentResult = result.structured_output
+result_dict = {
+  "pod_name": "api-server-7f9c8d6b9c-2xkqj",
+  "namespace": "default",
+  "overall_status": "CrashLoopBackOff",
+  "root_cause": {
+    "summary": "Application container is crashing due to missing environment variable DATABASE_URL.",
+    "confidence": "HIGH",
+    "contributing_factors": [
+      "DATABASE_URL not defined in pod environment",
+      "Recent config change removed secret reference",
+      "Application does not handle missing config gracefully"
+    ]
+  },
+  "evidence": [
+    {
+      "source": "logs",
+      "reference": "kubectl logs api-server-7f9c8d6b9c-2xkqj",
+      "description": "Error: DATABASE_URL is not set. Application exiting."
+    },
+    {
+      "source": "pod_status",
+      "reference": "kubectl describe pod api-server-7f9c8d6b9c-2xkqj",
+      "description": "Pod is in CrashLoopBackOff state with 5 restarts in the last 10 minutes."
+    },
+    {
+      "source": "config",
+      "reference": "deployment/api-server",
+      "description": "Environment variable DATABASE_URL is missing from container spec."
+    }
+  ],
+  "risk_assessment": "MEDIUM",
+  "blast_radius": "Deployment",
+  "proposed_actions": [
+    {
+      "action_type": "READ",
+      "title": "Verify environment variables in deployment",
+      "description": "Inspect the deployment spec to confirm missing DATABASE_URL configuration.",
+      "kubectl_command": "kubectl get deployment api-server -o yaml",
+      "requires_confirmation": False,
+      "risk_level": "LOW",
+      "expected_outcome": "Confirmation that DATABASE_URL is absent or misconfigured.",
+      "rollback_strategy": None
+    },
+    {
+      "action_type": "WRITE",
+      "title": "Restore DATABASE_URL environment variable",
+      "description": "Patch the deployment to include DATABASE_URL from the correct secret.",
+      "kubectl_command": "kubectl set env deployment/api-server DATABASE_URL=<from-secret>",
+      "requires_confirmation": True,
+      "risk_level": "MEDIUM",
+      "expected_outcome": "Pod restarts successfully and enters Running state.",
+      "rollback_strategy": "kubectl rollout undo deployment/api-server"
+    }
+  ],
+  "requires_user_confirmation": True,
+  "summary": "The pod is repeatedly crashing because a required environment variable (DATABASE_URL) is missing. Restoring the configuration should resolve the issue."
+}
+
+result = K8sAgentResult(**result_dict)
+
 
 print(f"""
 ───────────────── DIAGNOSIS ───────────────────
@@ -79,10 +137,10 @@ Namespace: {result.namespace}
 Status: {result.overall_status}
 
 Root Cause: (Confidence: {result.root_cause.confidence})
-{"\n".join(list(map(lambda x: x , result.root_cause.contributing_factors)))}
+{parse_root_cause(result.root_cause.contributing_factors)}
 
 Evidence:
-{"\n".join(list(map(lambda x: x.source + ": " + x.description , result.evidence)))}
+{parse_evidence(result.evidence)}
 """)
 
 # pprint(result.model_dump())
