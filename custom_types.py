@@ -34,6 +34,8 @@ class ProposedAction(BaseModel):
     expected_outcome: str
     rollback_strategy: Optional[str] = None
 
+    diff_preview: Optional[str] = None
+
 class RootCause(BaseModel):
     summary: str
     confidence: ConfidenceLevel

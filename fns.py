@@ -15,18 +15,6 @@ def build_agent_context(pod_with_logs):
 
     return "\n".join(lines)
 
-def parse_root_cause(contributing_factors):
-    result = ""
-    for factor in contributing_factors:
-        result += factor + '\n'
-    return result
-
-def parse_evidence(evidence):
-    result = ""
-    for x in evidence:
-        result += x.source + ": " + x.description + '\n'
-    return result
-
 def severity_color(level: str):
     mapping = {
         "HIGH": "bold red",

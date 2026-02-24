@@ -84,13 +84,14 @@ Example (for a pod in CrashLoopBackOff due to a missing env variable):
     },
     {
       "action_type": "WRITE",
-      "title": "Add missing DATABASE_URL and restart pod",
-      "description": "Create or update the secret/config and restart the pod to apply changes",
+      "title": "Add missing DATABASE_URL",
+      "description": "Update deployment to include missing environment variable",
       "kubectl_command": "kubectl set env deployment/api-server DATABASE_URL=<value>",
       "requires_confirmation": true,
       "risk_level": "LOW",
-      "expected_outcome": "Pod starts successfully and remains stable",
-      "rollback_strategy": "Remove the environment variable and restart the pod again"
+      "expected_outcome": "Pod starts successfully",
+      "rollback_strategy": "kubectl rollout undo deployment/api-server",
+      "diff_preview": "--- deployment/api-server\n+++ deployment/api-server\n@@\n- DATABASE_URL: <missing>\n+ DATABASE_URL: <value>"
     }
   ],
 
