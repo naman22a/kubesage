@@ -128,19 +128,57 @@ result_dict = {
 
 result = K8sAgentResult(**result_dict)
 
+print("\n" + "═" * 60)
+print("🧠  KUBESAGE DIAGNOSTIC REPORT")
+print("═" * 60)
 
 print(f"""
-───────────────── DIAGNOSIS ───────────────────
-
-Pod: {result.pod_name}
-Namespace: {result.namespace}
-Status: {result.overall_status}
-
-Root Cause: (Confidence: {result.root_cause.confidence})
-{parse_root_cause(result.root_cause.contributing_factors)}
-
-Evidence:
-{parse_evidence(result.evidence)}
+📦 Pod Information
+────────────────────────────────────────────────────────────
+  Name       : {result.pod_name}
+  Namespace  : {result.namespace}
+  Status     : {result.overall_status}
+  BlastRadius: {result.blast_radius}
+  Risk Level : {result.risk_assessment}
 """)
+
+print("🔎 Root Cause Analysis")
+print("────────────────────────────────────────────────────────────")
+print(f"  Confidence : {result.root_cause.confidence}")
+print(f"  Summary    : {result.root_cause.summary}")
+print("\n  Contributing Factors:")
+for factor in result.root_cause.contributing_factors:
+    print(f"   • {factor}")
+
+print("\n📜 Evidence Collected")
+print("────────────────────────────────────────────────────────────")
+for idx, item in enumerate(result.evidence, start=1):
+    print(f"""
+  [{idx}] Source     : {item.source}
+      Reference  : {item.reference}
+      Description: {item.description}
+""")
+
+print("🛠 Proposed Actions")
+print("────────────────────────────────────────────────────────────")
+for idx, action in enumerate(result.proposed_actions, start=1):
+    print(f"""
+  [{idx}] {action.action_type}  |  Risk: {action.risk_level}
+      Title       : {action.title}
+      Description : {action.description}
+      Command     : {action.kubectl_command}
+      Confirmation: {"YES" if action.requires_confirmation else "NO"}
+      Expected    : {action.expected_outcome}
+      Rollback    : {action.rollback_strategy or "N/A"}
+""")
+
+print("📌 Final Summary")
+print("────────────────────────────────────────────────────────────")
+print(f"  {result.summary}")
+
+if result.requires_user_confirmation:
+    print("\n⚠  This operation may modify cluster state.")
+    print("   User confirmation required before proceeding.")
+    print("═" * 60)
 
 # pprint(result.model_dump())
