@@ -32,7 +32,10 @@ def list_pod_with_logs(pod_name, namespace="default", tail_lines=200):
         }
 
     except Exception as e:
-        print('Something went wrong', e)
+        if "Pod not found" in str(e):
+            return None
+        else:
+            print('Something went wrong', e)
 
 if __name__ == "__main__":
     print(list_pod_with_logs('crash-pod'))

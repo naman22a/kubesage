@@ -1,10 +1,12 @@
 import io
 from contextlib import redirect_stdout
 from pprint import pprint
-import argparse
 import os
 import time
 import dotenv
+import json
+import subprocess
+import shlex
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -27,7 +29,6 @@ dotenv.load_dotenv()
 
 console = Console()
 
-
 app = typer.Typer(help="KubeSage - Kubernetes Debugging Agent")
 
 @app.command()
@@ -39,7 +40,8 @@ def analyze(
 
 ollama_model = OllamaModel(
   host="http://localhost:11434",
-  model_id=os.environ['MODEL_ID']
+  model_id=os.environ['MODEL_ID'],
+  max_tokens=10_000
 )
 
 agent = Agent(
@@ -50,7 +52,6 @@ agent = Agent(
 def run_analysis(pod_name: str, namespace: str):
     console.print("[bold cyan]Starting KubeSage analysis...[/bold cyan]")
     namespace = namespace if namespace else 'default'
-
 
     header = Text()
     header.append("KubeSage\n", style="bold cyan")
@@ -65,10 +66,12 @@ def run_analysis(pod_name: str, namespace: str):
     )
     console.print()
 
-    
+    pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
+    if not pod:
+        console.print(Panel(f'We could not find a pod named {pod_name}', title="⚠️  Pod Not found", border_style="red"))
+        return
 
-    # pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
-    # logs_context = build_agent_context(pod)
+    logs_context = build_agent_context(pod)
 
     console.print(f"[bold]Pod:[/bold] {pod_name}")
     console.print(f"[bold]Namespace:[/bold] {namespace}")
@@ -99,83 +102,83 @@ def run_analysis(pod_name: str, namespace: str):
     console.rule("[bold green]✅ Analysis Complete")
     console.print()
 
-    # prompt = f"""
-    # TASK:
-    # Determine why the pod is failing and recommend safe remediation.
+    prompt = f"""
+    TASK:
+    Determine why the pod is failing and recommend safe remediation.
 
-    # CLUSTER LOGS:
-    # {logs_context}
-    # """
+    CLUSTER LOGS:
+    {logs_context}
+    """
 
-    # print("[✔] Running analysis with LLM...")
     buffer = io.StringIO()
     with redirect_stdout(buffer):
-        pass
         # result = agent(prompt, 
         #                structured_output_model=K8sAgentResult)
-    # print("[✔] Completed analysis with LLM...")
+        raw_output = agent(prompt)
 
     # result: K8sAgentResult = result.structured_output
-    result_dict = {
-      "pod_name": "api-server-7f9c8d6b9c-2xkqj",
-      "namespace": "default",
-      "overall_status": "CrashLoopBackOff",
-      "root_cause": {
-        "summary": "Application container is crashing due to missing environment variable DATABASE_URL.",
-        "confidence": "HIGH",
-        "contributing_factors": [
-          "DATABASE_URL not defined in pod environment",
-          "Recent config change removed secret reference",
-          "Application does not handle missing config gracefully"
-        ]
-      },
-      "evidence": [
-        {
-          "source": "logs",
-          "reference": "kubectl logs api-server-7f9c8d6b9c-2xkqj",
-          "description": "Error: DATABASE_URL is not set. Application exiting."
-        },
-        {
-          "source": "pod_status",
-          "reference": "kubectl describe pod api-server-7f9c8d6b9c-2xkqj",
-          "description": "Pod is in CrashLoopBackOff state with 5 restarts in the last 10 minutes."
-        },
-        {
-          "source": "config",
-          "reference": "deployment/api-server",
-          "description": "Environment variable DATABASE_URL is missing from container spec."
-        }
-      ],
-      "risk_assessment": "MEDIUM",
-      "blast_radius": "Deployment",
-      "proposed_actions": [
-        {
-          "action_type": "READ",
-          "title": "Verify environment variables in deployment",
-          "description": "Inspect the deployment spec to confirm missing DATABASE_URL configuration.",
-          "kubectl_command": "kubectl get deployment api-server -o yaml",
-          "requires_confirmation": False,
-          "risk_level": "LOW",
-          "expected_outcome": "Confirmation that DATABASE_URL is absent or misconfigured.",
-          "rollback_strategy": None
-        },
-        {
-          "action_type": "WRITE",
-          "title": "Restore DATABASE_URL environment variable",
-          "description": "Patch the deployment to include DATABASE_URL from the correct secret.",
-          "kubectl_command": "kubectl set env deployment/api-server DATABASE_URL=<from-secret>",
-          "requires_confirmation": True,
-          "risk_level": "MEDIUM",
-          "expected_outcome": "Pod restarts successfully and enters Running state.",
-          "rollback_strategy": "kubectl rollout undo deployment/api-server",
-          "diff_preview": "--- deployment/api-server\n+++ deployment/api-server\n@@\n- DATABASE_URL: <missing>\n+ DATABASE_URL: <value>"
-        }
-      ],
-      "requires_user_confirmation": True,
-      "summary": "The pod is repeatedly crashing because a required environment variable (DATABASE_URL) is missing. Restoring the configuration should resolve the issue."
-    }
+    data = json.loads(raw_output.message["content"][0]["text"])
+    result = K8sAgentResult(**data)
+    # result_dict = {
+    #   "pod_name": "api-server-7f9c8d6b9c-2xkqj",
+    #   "namespace": "default",
+    #   "overall_status": "CrashLoopBackOff",
+    #   "root_cause": {
+    #     "summary": "Application container is crashing due to missing environment variable DATABASE_URL.",
+    #     "confidence": "HIGH",
+    #     "contributing_factors": [
+    #       "DATABASE_URL not defined in pod environment",
+    #       "Recent config change removed secret reference",
+    #       "Application does not handle missing config gracefully"
+    #     ]
+    #   },
+    #   "evidence": [
+    #     {
+    #       "source": "logs",
+    #       "reference": "kubectl logs api-server-7f9c8d6b9c-2xkqj",
+    #       "description": "Error: DATABASE_URL is not set. Application exiting."
+    #     },
+    #     {
+    #       "source": "pod_status",
+    #       "reference": "kubectl describe pod api-server-7f9c8d6b9c-2xkqj",
+    #       "description": "Pod is in CrashLoopBackOff state with 5 restarts in the last 10 minutes."
+    #     },
+    #     {
+    #       "source": "config",
+    #       "reference": "deployment/api-server",
+    #       "description": "Environment variable DATABASE_URL is missing from container spec."
+    #     }
+    #   ],
+    #   "risk_assessment": "MEDIUM",
+    #   "blast_radius": "Deployment",
+    #   "proposed_actions": [
+    #     {
+    #       "action_type": "READ",
+    #       "title": "Verify environment variables in deployment",
+    #       "description": "Inspect the deployment spec to confirm missing DATABASE_URL configuration.",
+    #       "kubectl_command": "kubectl get deployment api-server -o yaml",
+    #       "requires_confirmation": False,
+    #       "risk_level": "LOW",
+    #       "expected_outcome": "Confirmation that DATABASE_URL is absent or misconfigured.",
+    #       "rollback_strategy": None
+    #     },
+    #     {
+    #       "action_type": "WRITE",
+    #       "title": "Restore DATABASE_URL environment variable",
+    #       "description": "Patch the deployment to include DATABASE_URL from the correct secret.",
+    #       "kubectl_command": "kubectl set env deployment/api-server DATABASE_URL=<from-secret>",
+    #       "requires_confirmation": True,
+    #       "risk_level": "MEDIUM",
+    #       "expected_outcome": "Pod restarts successfully and enters Running state.",
+    #       "rollback_strategy": "kubectl rollout undo deployment/api-server",
+    #       "diff_preview": "--- deployment/api-server\n+++ deployment/api-server\n@@\n- DATABASE_URL: <missing>\n+ DATABASE_URL: <value>"
+    #     }
+    #   ],
+    #   "requires_user_confirmation": True,
+    #   "summary": "The pod is repeatedly crashing because a required environment variable (DATABASE_URL) is missing. Restoring the configuration should resolve the issue."
+    # }
 
-    result = K8sAgentResult(**result_dict)
+    # result = K8sAgentResult(**result_dict)
 
     console.print("\n")
     console.rule("[bold cyan]🧠 KUBESAGE DIAGNOSTIC REPORT")
@@ -235,9 +238,7 @@ def run_analysis(pod_name: str, namespace: str):
 
         console.print(Panel(action_panel, title=f"Action {idx}", border_style="green"))
 
-        # Show command as syntax-highlighted block
-        syntax = Syntax(action.kubectl_command, "bash", theme="monokai", line_numbers=False)
-        console.print(syntax)
+        print(action.kubectl_command)
 
         # ─── Interactive Confirmation for WRITE ──────────────────
         if action.action_type == "WRITE" and action.requires_confirmation:
@@ -255,7 +256,8 @@ def run_analysis(pod_name: str, namespace: str):
 
             if Confirm.ask("Do you want to apply this change?"):
                 console.print("✔ Applying change...", style="bold green")
-                # Here you would actually run the kubectl command
+                if action.action_type == 'WRITE':
+                    subprocess.run(shlex.split(action.kubectl_command))
             else:
                 console.print("✖ Skipped.", style="bold red")
 

@@ -115,4 +115,9 @@ Example (for a pod in CrashLoopBackOff due to a missing env variable):
 • No markdown formatting
 
 You are an expert SRE assisting another engineer.
+
+Return ONLY valid JSON.
+Escape all newline characters as \\n.
+Do NOT include markdown or triple backticks.
+Do NOT include explanations.
 """
