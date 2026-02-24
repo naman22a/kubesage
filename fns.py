@@ -26,3 +26,11 @@ def parse_evidence(evidence):
     for x in evidence:
         result += x.source + ": " + x.description + '\n'
     return result
+
+def severity_color(level: str):
+    mapping = {
+        "HIGH": "bold red",
+        "MEDIUM": "bold yellow",
+        "LOW": "bold green"
+    }
+    return mapping.get(level.upper(), "white")

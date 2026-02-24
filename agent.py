@@ -3,7 +3,16 @@ from contextlib import redirect_stdout
 from pprint import pprint
 import argparse
 import os
+import time
 import dotenv
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.prompt import Confirm
+from rich.syntax import Syntax
+from rich import box
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from strands import Agent
 from strands.models.ollama import OllamaModel
@@ -11,7 +20,7 @@ from strands.models.ollama import OllamaModel
 from k8s import list_pod_with_logs
 from constants import system_prompt
 from custom_types import K8sAgentResult
-from fns import build_agent_context, parse_root_cause, parse_evidence
+from fns import build_agent_context, parse_root_cause, parse_evidence, severity_color
 
 dotenv.load_dotenv()
 
@@ -28,14 +37,20 @@ args = parser.parse_args()
 pod_name = args.pod
 namespace = args.namespace if args.namespace else 'default'
 
-print(
-"""
-┌──────────────────────────────────────────────┐
-│                 KubeSage                     │
-│        Kubernetes Debugging Assistant        │
-└──────────────────────────────────────────────┘
-"""
+console = Console()
+
+header = Text()
+header.append("KubeSage\n", style="bold cyan")
+header.append("AI-Powered Kubernetes Debugging Assistant", style="white")
+console.print(
+    Panel(
+        header,
+        box=box.ROUNDED,
+        padding=(1, 4),
+        border_style="cyan"
+    )
 )
+console.print()
 
 ollama_model = OllamaModel(
     host="http://localhost:11434",
@@ -48,9 +63,37 @@ agent = Agent(
 )
 
 # pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
-print("[✔] Fetching last 200 log lines...")
 # logs_context = build_agent_context(pod)
-print("[✔] Building diagnostic context...")
+
+console.print(f"[bold]Pod:[/bold] {pod_name}")
+console.print(f"[bold]Namespace:[/bold] {namespace}")
+console.print()
+
+console.rule("[bold blue]🚀 Initializing Debug Session")
+
+steps = [
+    "Fetching last 200 log lines...",
+    "Building diagnostic context...",
+    "Running analysis with LLM...",
+    "Structuring findings..."
+]
+
+with Progress(
+    SpinnerColumn(style="cyan"),
+    TextColumn("[progress.description]{task.description}"),
+    transient=True,
+    console=console,
+) as progress:
+
+    for step in steps:
+        task = progress.add_task(f"[yellow]{step}", total=None)
+        time.sleep(0.8)  # simulate work
+        progress.remove_task(task)
+        console.print(f"[bold green]✔[/bold green] {step}")
+
+console.rule("[bold green]✅ Analysis Complete")
+console.print()
+
 # prompt = f"""
 # TASK:
 # Determine why the pod is failing and recommend safe remediation.
@@ -59,13 +102,13 @@ print("[✔] Building diagnostic context...")
 # {logs_context}
 # """
 
-print("[✔] Running analysis with LLM...")
+# print("[✔] Running analysis with LLM...")
 buffer = io.StringIO()
 with redirect_stdout(buffer):
     pass
     # result = agent(prompt, 
     #                structured_output_model=K8sAgentResult)
-print("[✔] Completed analysis with LLM...")
+# print("[✔] Completed analysis with LLM...")
 
 # result: K8sAgentResult = result.structured_output
 result_dict = {
@@ -128,57 +171,97 @@ result_dict = {
 
 result = K8sAgentResult(**result_dict)
 
-print("\n" + "═" * 60)
-print("🧠  KUBESAGE DIAGNOSTIC REPORT")
-print("═" * 60)
+console.print("\n")
+console.rule("[bold cyan]🧠 KUBESAGE DIAGNOSTIC REPORT")
 
-print(f"""
-📦 Pod Information
-────────────────────────────────────────────────────────────
-  Name       : {result.pod_name}
-  Namespace  : {result.namespace}
-  Status     : {result.overall_status}
-  BlastRadius: {result.blast_radius}
-  Risk Level : {result.risk_assessment}
-""")
+# ─── Pod Info Panel ──────────────────────────────────────────
+pod_info = f"""
+[bold]Pod:[/bold] {result.pod_name}
+[bold]Namespace:[/bold] {result.namespace}
+[bold]Status:[/bold] {result.overall_status}
+[bold]Blast Radius:[/bold] {result.blast_radius}
+[bold]Risk Level:[/bold] [{severity_color(result.risk_assessment)}]{result.risk_assessment}[/]
+"""
 
-print("🔎 Root Cause Analysis")
-print("────────────────────────────────────────────────────────────")
-print(f"  Confidence : {result.root_cause.confidence}")
-print(f"  Summary    : {result.root_cause.summary}")
-print("\n  Contributing Factors:")
+console.print(Panel(pod_info, title="📦 Pod Information", border_style="cyan"))
+
+# ─── Root Cause ──────────────────────────────────────────────
+root_cause_text = Text()
+root_cause_text.append("Summary:\n", style="bold")
+root_cause_text.append(result.root_cause.summary + "\n\n")
+
+root_cause_text.append(
+    f"Confidence: {result.root_cause.confidence}\n",
+    style=severity_color(result.root_cause.confidence)
+)
+
+root_cause_text.append("\nContributing Factors:\n", style="bold")
 for factor in result.root_cause.contributing_factors:
-    print(f"   • {factor}")
+    root_cause_text.append(f" • {factor}\n")
 
-print("\n📜 Evidence Collected")
-print("────────────────────────────────────────────────────────────")
-for idx, item in enumerate(result.evidence, start=1):
-    print(f"""
-  [{idx}] Source     : {item.source}
-      Reference  : {item.reference}
-      Description: {item.description}
-""")
+console.print(Panel(root_cause_text, title="🔎 Root Cause Analysis", border_style="magenta"))
 
-print("🛠 Proposed Actions")
-print("────────────────────────────────────────────────────────────")
+# ─── Evidence Table ──────────────────────────────────────────
+table = Table(title="📜 Evidence Collected", box=box.ROUNDED)
+table.add_column("Source", style="cyan")
+table.add_column("Reference", style="yellow")
+table.add_column("Description", style="white")
+
+for e in result.evidence:
+    table.add_row(e.source, e.reference, e.description)
+
+console.print(table)
+
+# ─── Proposed Actions ────────────────────────────────────────
+console.rule("[bold green]🛠 Proposed Actions")
+
 for idx, action in enumerate(result.proposed_actions, start=1):
-    print(f"""
-  [{idx}] {action.action_type}  |  Risk: {action.risk_level}
-      Title       : {action.title}
-      Description : {action.description}
-      Command     : {action.kubectl_command}
-      Confirmation: {"YES" if action.requires_confirmation else "NO"}
-      Expected    : {action.expected_outcome}
-      Rollback    : {action.rollback_strategy or "N/A"}
-""")
+    risk_style = severity_color(action.risk_level)
 
-print("📌 Final Summary")
-print("────────────────────────────────────────────────────────────")
-print(f"  {result.summary}")
+    action_panel = f"""
+[bold]Type:[/bold] {action.action_type}
+[bold]Risk:[/bold] [{risk_style}]{action.risk_level}[/]
+[bold]Title:[/bold] {action.title}
+[bold]Description:[/bold] {action.description}
+[bold]Expected Outcome:[/bold] {action.expected_outcome}
+[bold]Rollback Strategy:[/bold] {action.rollback_strategy or "N/A"}
+"""
+
+    console.print(Panel(action_panel, title=f"Action {idx}", border_style="green"))
+
+    # Show command as syntax-highlighted block
+    syntax = Syntax(action.kubectl_command, "bash", theme="monokai", line_numbers=False)
+    console.print(syntax)
+
+    # ─── Interactive Confirmation for WRITE ──────────────────
+    if action.action_type == "WRITE" and action.requires_confirmation:
+
+        console.print("\n⚠  This action will modify cluster state.", style="bold red")
+
+        # Fake diff preview (for now static example)
+        diff_preview = f"""
+--- deployment/api-server (current)
++++ deployment/api-server (proposed)
+@@
+- DATABASE_URL: <missing>
++ DATABASE_URL: <from-secret>
+"""
+
+        console.print(Panel(
+            Syntax(diff_preview, "diff", theme="monokai"),
+            title="🔍 Diff Preview",
+            border_style="yellow"
+        ))
+
+        if Confirm.ask("Do you want to apply this change?"):
+            console.print("✔ Applying change...", style="bold green")
+            # Here you would actually run the kubectl command
+        else:
+            console.print("✖ Skipped.", style="bold red")
+
+# ─── Final Summary ───────────────────────────────────────────
+console.rule("[bold cyan]📌 Final Summary")
+console.print(result.summary, style="bold")
 
 if result.requires_user_confirmation:
-    print("\n⚠  This operation may modify cluster state.")
-    print("   User confirmation required before proceeding.")
-    print("═" * 60)
-
-# pprint(result.model_dump())
+    console.print("\nUser confirmation required before execution.", style="yellow")
