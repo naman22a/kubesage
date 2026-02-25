@@ -94,7 +94,7 @@ def run_analysis(pod_name: str, namespace: str):
 
         for step in steps:
             task = progress.add_task(f"[yellow]{step}", total=None)
-            time.sleep(0.8)  # simulate work
+            time.sleep(0.8)
             progress.remove_task(task)
             console.print(f"[bold green]✔[/bold green] {step}")
 
@@ -116,70 +116,66 @@ def run_analysis(pod_name: str, namespace: str):
     data = json.loads(raw_output.message["content"][0]["text"])
     result = K8sAgentResult(**data)
     # result_dict = {
-    #   "pod_name": pod_name,
-    #   "namespace": namespace,
-    #   "overall_status": "CrashLoopBackOff",
-    #   "root_cause": {
-    #     "summary": "Application container is crashing due to missing environment variable DATABASE_URL.",
-    #     "confidence": "HIGH",
-    #     "contributing_factors": [
-    #       "DATABASE_URL not defined in pod environment",
-    #       "Recent config change removed secret reference",
-    #       "Application does not handle missing config gracefully"
-    #     ]
-    #   },
-    #   "evidence": [
-    #     {
-    #       "source": "logs",
-    #       "reference": "kubectl logs api-server-7f9c8d6b9c-2xkqj",
-    #       "description": "Error: DATABASE_URL is not set. Application exiting."
+    #     "pod_name": pod_name,
+    #     "namespace": namespace,
+    #     "overall_status": "OOMKilled",
+    #     "root_cause": {
+    #         "summary": "Pod is hitting OOMKilled due to memory limit exceeded.",
+    #         "confidence": "HIGH",
+    #         "contributing_factors": [
+    #             "Container requests 50Mi but args stress 500M memory",
+    #             "Memory limit is set too low (100Mi)",
+    #             "Single replica causing no redundancy"
+    #         ]
     #     },
-    #     {
-    #       "source": "pod_status",
-    #       "reference": "kubectl describe pod api-server-7f9c8d6b9c-2xkqj",
-    #       "description": "Pod is in CrashLoopBackOff state with 5 restarts in the last 10 minutes."
-    #     },
-    #     {
-    #       "source": "config",
-    #       "reference": "deployment/api-server",
-    #       "description": "Environment variable DATABASE_URL is missing from container spec."
-    #     }
-    #   ],
-    #   "risk_assessment": "MEDIUM",
-    #   "blast_radius": "Deployment",
-    #   "proposed_actions": [
-    #     {
-    #       "action_type": "READ",
-    #       "title": "Verify environment variables in deployment",
-    #       "description": "Inspect the deployment spec to confirm missing DATABASE_URL configuration.",
-    #       "kubectl_command": "kubectl get deployment api-server -o yaml",
-    #       "requires_confirmation": False,
-    #       "risk_level": "LOW",
-    #       "expected_outcome": "Confirmation that DATABASE_URL is absent or misconfigured.",
-    #       "rollback_strategy": None
-    #     },
-    #     {
-    #       "action_type": "WRITE",
-    #       "title": "Restore DATABASE_URL environment variable",
-    #       "description": "Patch the deployment to include DATABASE_URL from the correct secret.",
-    #       "kubectl_command": "kubectl set env deployment/api-server DATABASE_URL=<from-secret>",
-    #       "requires_confirmation": True,
-    #       "risk_level": "MEDIUM",
-    #       "expected_outcome": "Pod restarts successfully and enters Running state.",
-    #       "rollback_strategy": "kubectl rollout undo deployment/api-server",
-    #       "diff_preview": "--- deployment/api-server\n+++ deployment/api-server\n@@\n- DATABASE_URL: <missing>\n+ DATABASE_URL: <value>"
-    #     }
-    #   ],
-    #   "requires_user_confirmation": True,
-    #   "summary": "The pod is repeatedly crashing because a required environment variable (DATABASE_URL) is missing. Restoring the configuration should resolve the issue."
+    #     "evidence": [
+    #         {
+    #             "source": "pod_status",
+    #             "description": "Pod restarted 3 times in last 5 minutes due to OOMKilled."
+    #         },
+    #         {
+    #             "source": "logs",
+    #             "description": "Container logs show 'Killed process' messages consistent with OOM."
+    #         },
+    #         {
+    #             "source": "config",
+    #             "reference": "Deployment spec",
+    #             "description": "Memory limits set too low for container workload."
+    #         }
+    #     ],
+    #     "risk_assessment": "HIGH",
+    #     "blast_radius": "Single pod",
+    #     "proposed_actions": [
+    #         {
+    #             "action_type": "WRITE",
+    #             "title": "Increase Memory Limit",
+    #             "description": "Update the container memory limits and requests to accommodate stress workload.",
+    #             "kubectl_command": "kubectl set resources deployment oom-deployment -c memory-hog --limits=memory=600Mi --requests=memory=300Mi",
+    #             "requires_confirmation": True,
+    #             "risk_level": "MEDIUM",
+    #             "expected_outcome": "Pod should run without being OOMKilled.",
+    #             "rollback_strategy": "Revert memory limit to previous values if new crashes occur.",
+    #             "diff_preview": "resources:\n  limits:\n    memory: '600Mi'\n  requests:\n    memory: '300Mi'"
+    #         },
+    #         {
+    #             "action_type": "WRITE",
+    #             "title": "Add Horizontal Pod Autoscaler",
+    #             "description": "Deploy an HPA to automatically scale pods based on memory usage.",
+    #             "kubectl_command": "kubectl autoscale deployment oom-deployment --cpu-percent=50 --min=1 --max=3",
+    #             "requires_confirmation": True,
+    #             "risk_level": "LOW",
+    #             "expected_outcome": "Deployment scales to handle memory load spikes.",
+    #             "rollback_strategy": "Remove HPA if scaling causes issues."
+    #         }
+    #     ],
+    #     "requires_user_confirmation": True,
+    #     "summary": "Pod is unstable due to memory limits; recommended to increase memory and consider autoscaling."
     # }
-
     # result = K8sAgentResult(**result_dict)
 
     console.print("\n")
     console.rule("[bold cyan]🧠 KUBESAGE DIAGNOSTIC REPORT")
 
-    # ─── Pod Info Panel ──────────────────────────────────────────
     pod_info = f"""
     [bold]Pod:[/bold] {result.pod_name}
     [bold]Namespace:[/bold] {result.namespace}
@@ -190,7 +186,6 @@ def run_analysis(pod_name: str, namespace: str):
 
     console.print(Panel(pod_info, title="📦 Pod Information", border_style="cyan"))
 
-    # ─── Root Cause ──────────────────────────────────────────────
     root_cause_text = Text()
     root_cause_text.append("Summary:\n", style="bold")
     root_cause_text.append(result.root_cause.summary + "\n\n")
@@ -206,7 +201,6 @@ def run_analysis(pod_name: str, namespace: str):
 
     console.print(Panel(root_cause_text, title="🔎 Root Cause Analysis", border_style="magenta"))
 
-    # ─── Evidence Table ──────────────────────────────────────────
     table = Table(title="📜 Evidence Collected", box=box.ROUNDED)
     table.add_column("Source", style="cyan")
     table.add_column("Reference", style="yellow")
@@ -217,7 +211,6 @@ def run_analysis(pod_name: str, namespace: str):
 
     console.print(table)
 
-    # ─── Proposed Actions ────────────────────────────────────────
     console.rule("[bold green]🛠 Proposed Actions")
 
     for idx, action in enumerate(result.proposed_actions, start=1):
@@ -236,12 +229,10 @@ def run_analysis(pod_name: str, namespace: str):
 
         print(action.kubectl_command)
 
-        # ─── Interactive Confirmation for WRITE ──────────────────
         if action.action_type == "WRITE" and action.requires_confirmation:
 
             console.print("\n⚠  This action will modify cluster state.", style="bold red")
 
-            # Fake diff preview (for now static example)
             diff_preview = [x.diff_preview for x in result.proposed_actions if x.action_type == "WRITE"][0]
 
             console.print(Panel(
@@ -257,7 +248,6 @@ def run_analysis(pod_name: str, namespace: str):
             else:
                 console.print("✖ Skipped.", style="bold red")
 
-    # ─── Final Summary ───────────────────────────────────────────
     console.rule("[bold cyan]📌 Final Summary")
     console.print(result.summary, style="bold")
 
