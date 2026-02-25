@@ -120,8 +120,8 @@ def run_analysis(pod_name: str, namespace: str):
     data = json.loads(raw_output.message["content"][0]["text"])
     result = K8sAgentResult(**data)
     # result_dict = {
-    #   "pod_name": "api-server-7f9c8d6b9c-2xkqj",
-    #   "namespace": "default",
+    #   "pod_name": pod_name,
+    #   "namespace": namespace,
     #   "overall_status": "CrashLoopBackOff",
     #   "root_cause": {
     #     "summary": "Application container is crashing due to missing environment variable DATABASE_URL.",
