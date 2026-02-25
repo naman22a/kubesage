@@ -1,6 +1,5 @@
 import io
 from contextlib import redirect_stdout
-from pprint import pprint
 import os
 import time
 import dotenv
@@ -112,11 +111,8 @@ def run_analysis(pod_name: str, namespace: str):
 
     buffer = io.StringIO()
     with redirect_stdout(buffer):
-        # result = agent(prompt, 
-        #                structured_output_model=K8sAgentResult)
         raw_output = agent(prompt)
 
-    # result: K8sAgentResult = result.structured_output
     data = json.loads(raw_output.message["content"][0]["text"])
     result = K8sAgentResult(**data)
     # result_dict = {
