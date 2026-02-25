@@ -1,8 +1,6 @@
 import io
 from contextlib import redirect_stdout
-import os
 import time
-import dotenv
 import json
 import subprocess
 import shlex
@@ -16,15 +14,10 @@ from rich import box
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import typer
 
-from strands import Agent
-from strands.models.ollama import OllamaModel
-
-from k8s import list_pod_with_logs
-from constants import system_prompt
-from custom_types import K8sAgentResult
-from fns import build_agent_context, severity_color
-
-dotenv.load_dotenv()
+from src.agent import agent
+from src.k8s import list_pod_with_logs
+from src.custom_types import K8sAgentResult
+from src.fns import build_agent_context, severity_color
 
 console = Console()
 
@@ -36,17 +29,6 @@ def analyze(
     namespace: str = typer.Option("default", "--namespace", "-ns", help="Kubernetes namespace"),
 ):
     run_analysis(pod, namespace)
-
-ollama_model = OllamaModel(
-  host="http://localhost:11434",
-  model_id=os.environ['MODEL_ID'],
-  max_tokens=10_000
-)
-
-agent = Agent(
-  model=ollama_model,
-  system_prompt=system_prompt
-)
 
 def run_analysis(pod_name: str, namespace: str):
     console.print("[bold cyan]Starting KubeSage analysis...[/bold cyan]")
@@ -118,7 +100,7 @@ def run_analysis(pod_name: str, namespace: str):
     # result_dict = {
     #     "pod_name": pod_name,
     #     "namespace": namespace,
-    #     "overall_status": "OOMKilled",
+    #     "overall_status": "CrashLoopBackOff",
     #     "root_cause": {
     #         "summary": "Pod is hitting OOMKilled due to memory limit exceeded.",
     #         "confidence": "HIGH",
