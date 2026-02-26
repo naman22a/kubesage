@@ -15,7 +15,7 @@ ollama_model = OllamaModel(
 
 bedrock_model = BedrockModel(
   model_id=os.environ['MODEL_ID'],
-  region_name="us-east-1",
+  region_name=os.environ['REGION'],
   max_tokens=10_000
 )
 
