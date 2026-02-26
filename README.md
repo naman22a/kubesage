@@ -1,4 +1,4 @@
-# KubeSage
+# 🟪 KubeSage
 
 > AI-Powered Kubernetes Debugging Agent
 
@@ -68,7 +68,7 @@ CLI Output + Optional Storage
 - Amazon DynamoDB (optional extension) – Structured incident storage
 - Amazon S3 (optional extension) – Log archival and debugging reports
 
-🐈 Core Features
+## ✨ Core Features
 
 - AI-driven root cause analysis for:
     - CrashLoopBackOff
