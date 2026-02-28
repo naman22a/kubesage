@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 dotenv.load_dotenv()
 config.load_kube_config()
 
-def get_pod_logs(cluster_name: str, pod_name: str, namespace: str = 'default'):
+def get_pod_logs_from_eks_cloud_watch(cluster_name: str, pod_name: str, namespace: str = 'default'):
     cloudwatch = boto3.client("cloudwatch", region_name=os.environ['REGION'])
     client = boto3.client("logs", region_name=os.environ['REGION'])
 
@@ -96,7 +96,7 @@ def get_pod_logs(cluster_name: str, pod_name: str, namespace: str = 'default'):
 
 v1 = client.CoreV1Api()
 
-def list_pod_with_logs_old(pod_name, namespace="default", tail_lines=200):
+def list_pod_with_logs(pod_name, namespace="default", tail_lines=200):
     
     try:
         pods = v1.list_namespaced_pod(namespace)
@@ -130,5 +130,5 @@ def list_pod_with_logs_old(pod_name, namespace="default", tail_lines=200):
             print('Something went wrong', e)
 
 if __name__ == "__main__":
-    # print(list_pod_with_logs_old('oom-deployment'))
-    print(get_pod_logs('kubesage-demo-cluster','oom-deployment-5c5f9dd698-k8pkh'))
+    print(list_pod_with_logs('oom-deployment-7d795b6d55-w9g9s'))
+    # print(get_pod_logs_from_eks_cloud_watch('kubesage-demo-cluster','oom-deployment-5c5f9dd698-k8pkh'))

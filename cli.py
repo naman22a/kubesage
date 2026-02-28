@@ -15,7 +15,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 import typer
 
 from src.agent import agent
-from src.k8s import get_pod_logs
+from src.k8s import list_pod_with_logs
 from src.custom_types import K8sAgentResult
 from src.fns import build_agent_context, severity_color
 
@@ -47,7 +47,7 @@ def run_analysis(pod_name: str, namespace: str):
     )
     console.print()
 
-    pod = get_pod_logs(cluster_name='kubesage-demo-cluster', pod_name=pod_name, namespace=namespace)
+    pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
     if not pod:
         console.print(Panel(f'We could not find a pod named {pod_name}', title="⚠️  Pod Not found", border_style="red"))
         return
