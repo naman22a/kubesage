@@ -1,8 +1,11 @@
 def build_agent_context(pod_with_logs):
     lines = []
     
+    # lines.append(
+    #     f"[POD: {pod_with_logs['pod']} | phase={pod_with_logs['phase']} | restarts={pod_with_logs['restarts']}]"
+    # )
     lines.append(
-        f"[POD: {pod_with_logs['pod']} | phase={pod_with_logs['phase']} | restarts={pod_with_logs['restarts']}]"
+        f"[POD: {pod_with_logs['pod']} | restarts={pod_with_logs['restarts']}]"
     )
 
     if pod_with_logs["logs"]:
