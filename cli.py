@@ -141,78 +141,12 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
     {logs_context}
     """
 
-    # buffer = io.StringIO()
-    # with redirect_stdout(buffer):
-    #     raw_output = agent(prompt)
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        raw_output = agent(prompt)
 
-    # data = json.loads(raw_output.message["content"][0]["text"])
-    # result = K8sAgentResult(**data)
-    result_dict = {
-        "pod_name": pod_name,
-        "namespace": namespace,
-        "overall_status": "CrashLoopBackOff",
-        "root_cause": {
-            "summary": "Container is repeatedly OOMKilled because it attempts to allocate 500M memory while the pod memory limit is set to 100Mi.",
-            "confidence": "HIGH",
-            "contributing_factors": [
-                "Container args specify '--vm-bytes 500M'",
-                "Memory limit is set to only 100Mi",
-                "Exit Code 137 indicates OOMKilled",
-                "Restart count is 4 and increasing",
-                "QoS Class is Burstable (requests < limits)"
-            ]
-        },
-        "evidence": [
-            {
-                "source": "pod_status",
-                "description": "Last State shows Reason: OOMKilled and Exit Code: 137."
-            },
-            {
-                "source": "pod_status",
-                "description": "Restart Count is 4 with BackOff events."
-            },
-            {
-                "source": "container_spec",
-                "description": "Args include '--vm 1 --vm-bytes 500M --vm-hang 1'."
-            },
-            {
-                "source": "resource_config",
-                "description": "Memory limit is 100Mi and request is 50Mi."
-            },
-            {
-                "source": "events",
-                "description": "Multiple 'Back-off restarting failed container' warnings."
-            }
-        ],
-        "risk_assessment": "HIGH",
-        "blast_radius": "Single pod in Deployment oom-deployment",
-        "proposed_actions": [
-            {
-                "action_type": "WRITE",
-                "title": "Increase Memory Limits",
-                "description": "Increase memory requests and limits to exceed 500Mi since the container intentionally allocates 500M.",
-                "kubectl_command": "kubectl set resources deployment oom-deployment -c memory-hog --limits=memory=700Mi --requests=memory=500Mi",
-                "requires_confirmation": True,
-                "risk_level": "MEDIUM",
-                "expected_outcome": "Container should stop getting OOMKilled and run successfully.",
-                "rollback_strategy": "Revert to previous limits if node memory pressure occurs.",
-                "diff_preview": "resources:\n  limits:\n    memory: \"700Mi\"\n  requests:\n    memory: \"500Mi\""
-            },
-            {
-                "action_type": "WRITE",
-                "title": "Align Stress Memory With Limit (Alternative Fix)",
-                "description": "Reduce stress memory allocation to stay within current 100Mi limit.",
-                "kubectl_command": "kubectl patch deployment oom-deployment --type='json' -p='[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":[\"--vm\",\"1\",\"--vm-bytes\",\"80M\",\"--vm-hang\",\"1\"]}]'",
-                "requires_confirmation": True,
-                "risk_level": "LOW",
-                "expected_outcome": "Container runs without exceeding memory limit.",
-                "rollback_strategy": "Restore original args if stress testing at 500M is required."
-            }
-        ],
-        "requires_user_confirmation": True,
-        "summary": "Pod is unstable due to intentional memory over-allocation (500M) exceeding the configured 100Mi limit, causing repeated OOMKills and CrashLoopBackOff."
-    }
-    result = K8sAgentResult(**result_dict)
+    data = json.loads(raw_output.message["content"][0]["text"])
+    result = K8sAgentResult(**data)
 
     send_risk_alert_sns(SNS_TOPIC_ARN, result)
     store_analysis_result(DYNAMODB_TABLE, result)
