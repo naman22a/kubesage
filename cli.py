@@ -1,3 +1,5 @@
+import os
+import dotenv
 import io
 from contextlib import redirect_stdout
 import time
@@ -18,10 +20,14 @@ from src.agent import agent
 from src.k8s import list_pod_with_logs
 from src.custom_types import K8sAgentResult
 from src.fns import build_agent_context, severity_color
+from src.aws_utils import send_risk_alert_sns, store_analysis_result
 
-console = Console()
+dotenv.load_dotenv()
 
 app = typer.Typer(help="KubeSage - Kubernetes Debugging Agent")
+console = Console()
+SNS_TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
+DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
 
 @app.command()
 def analyze(
@@ -207,6 +213,9 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
         "summary": "Pod is unstable due to intentional memory over-allocation (500M) exceeding the configured 100Mi limit, causing repeated OOMKills and CrashLoopBackOff."
     }
     result = K8sAgentResult(**result_dict)
+
+    send_risk_alert_sns(SNS_TOPIC_ARN, result)
+    store_analysis_result(DYNAMODB_TABLE, result)
 
     console.print("\n")
     console.rule("[bold cyan]🧠 KUBESAGE DIAGNOSTIC REPORT")
