@@ -173,7 +173,7 @@ export AWS_REGION=us-east-1
 3. Set environment variable:
 
 ```bash
-export DYNAMODB_TABLE=kubesage-incidents
+export DYNAMODB_TABLE=kubesage-analysis
 ```
 
 ## 🔔 AWS Setup (SNS Alerts)
