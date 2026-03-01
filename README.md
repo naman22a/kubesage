@@ -6,6 +6,8 @@ KubeSage is an AI-driven Kubernetes debugging assistant that automatically analy
 
 Instead of manually digging through logs, events, and YAML manifests, KubeSage performs automated root cause analysis and provides actionable remediation suggestions directly from your terminal.
 
+See [examples/README.md](./examples/README.md)
+
 ## 🚀 Features
 
 ### ✨ AI-powered root cause analysis
@@ -22,7 +24,6 @@ Detects common Kubernetes failures such as:
 
 Powered by Amazon Bedrock using:
 
-- Claude 3.5 Sonnet – deep reasoning
 - Claude 3 Haiku – fast classification
 
 ### 📊 Structured debugging results
