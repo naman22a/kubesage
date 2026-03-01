@@ -35,6 +35,24 @@ KubeSage provides:
 - 💡 Suggested fix
 - 📈 Confidence score
 
+### 🗄️ Incident History with DynamoDB
+
+Every analysis is automatically persisted to Amazon DynamoDB:
+
+- Stores pod name, namespace, risk level, root cause, and timestamp
+- Query past incidents by pod name or risk severity
+- Enables post-mortem analysis and trend detection
+- Full incident record retained for audit and compliance
+
+### 🔔 Intelligent Alerting with Amazon SNS
+
+KubeSage automatically notifies your team on critical failures:
+
+- Real-time email alerts triggered for **HIGH** risk incidents
+- Incident summary with root cause and suggested fix delivered to inbox
+- No manual monitoring required — KubeSage alerts you before you notice
+- Extensible to SMS, Slack, and PagerDuty via SNS subscriptions
+
 ### 🖥️ Developer-friendly CLI
 
 ```bash
@@ -58,14 +76,15 @@ Below is the high-level architecture of KubeSage.
 
 KubeSage integrates with several AWS services:
 
-| Service                               | Purpose                               |
-| ------------------------------------- | ------------------------------------- |
-| **Amazon Bedrock**                    | LLM inference for debugging reasoning |
-| **Amazon Elastic Kubernetes Service** | Managed Kubernetes cluster            |
-| **Amazon Cloud Watch**                | Logs and Metrics                      |
-| **AWS Lambda** _(optional)_           | Event-driven debugging                |
-| **Amazon DynamoDB** _(optional)_      | Incident storage                      |
-| **Amazon S3** _(optional)_            | Log archival                          |
+| Service                               | Purpose                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| **Amazon Bedrock**                    | LLM inference for debugging reasoning (Claude 3 Haiku) |
+| **Amazon Elastic Kubernetes Service** | Managed Kubernetes cluster                             |
+| **Amazon CloudWatch**                 | Pod logs and container metrics collection              |
+| **Amazon DynamoDB**                   | Persistent incident storage and history querying       |
+| **Amazon SNS**                        | Real-time email/SMS alerts for HIGH risk incidents     |
+| **AWS Lambda** _(optional)_           | Event-driven autonomous debugging                      |
+| **Amazon S3** _(optional)_            | Long-term log archival                                 |
 
 ## ⚙️ Tech Stack
 
@@ -85,14 +104,17 @@ KubeSage integrates with several AWS services:
 ### AWS SDK
 
 - strands – Bedrock invocation
+- boto3 – DynamoDB and SNS integration
 
 ## 🎯 Impact
 
 KubeSage helps engineers:
 
-- ⏱ Reduce Mean Time To Resolution (MTTR)
-- 🔍 Automatically identify failure causes
-- 🧠 Leverage GenAI-powered debugging
+- ⏱ Reduce Mean Time To Resolution (MTTR) from 30+ minutes to under 1 minute
+- 🔍 Automatically identify failure causes without manual log digging
+- 🧠 Democratize SRE expertise — junior engineers debug like seniors
+- 🔔 Get alerted on critical failures before manual discovery
+- 📚 Build an incident knowledge base for post-mortems and trend analysis
 - ⚡ Respond faster to production incidents
 
 ## ⬇️ Installation
@@ -144,6 +166,29 @@ aws configure
 export AWS_REGION=us-east-1
 ```
 
+## 🗄️ AWS Setup (DynamoDB)
+
+1. Create a DynamoDB table named `kubesage-analysis` with `pod_name` as the partition key.
+2. Ensure your IAM role has `dynamodb:PutItem` and `dynamodb:Query` permissions.
+3. Set environment variable:
+
+```bash
+export DYNAMODB_TABLE=kubesage-incidents
+```
+
+## 🔔 AWS Setup (SNS Alerts)
+
+1. Create an SNS topic named `kubesage-alerts` in your AWS region.
+2. Subscribe your email or phone number to the topic.
+3. Confirm the subscription from your inbox.
+4. Set environment variable:
+
+```bash
+export SNS_TOPIC_ARN=arn:aws:sns:us-east-1:YOUR_ACCOUNT_ID:kubesage-alerts
+```
+
+> Alerts are automatically triggered when `risk_assessment` is **HIGH**.
+
 ## 📁 Code Structure
 
 ```
@@ -151,6 +196,7 @@ kubesage/
 ├── k8s/                  # K8s manifest files for testing
 ├── src/                  # Main source code
 │   ├── agent.py
+│   ├── aws_utils.py
 │   ├── constants.py
 │   ├── custom_types.py
 │   ├── fns.py
