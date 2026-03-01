@@ -38,7 +38,7 @@ KubeSage provides:
 ### 🖥️ Developer-friendly CLI
 
 ```bash
-python cli.py --pod crashloop-app
+python cli.py --pod oom-deployment-86b87cc56-45flm
 ```
 
 Example output:
