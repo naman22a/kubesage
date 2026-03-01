@@ -1,117 +1,100 @@
-# 🟪 KubeSage
+# ☸️ KubeSage
 
 > AI-Powered Kubernetes Debugging Agent
 
-## 🤔 Problem Statement
+KubeSage is an AI-driven Kubernetes debugging assistant that automatically analyzes failing pods and identifies root causes using Amazon Bedrock LLMs.
 
-Debugging Kubernetes clusters is complex, time-consuming, and often reactive. Developers and DevOps engineers must manually inspect:
+Instead of manually digging through logs, events, and YAML manifests, KubeSage performs automated root cause analysis and provides actionable remediation suggestions directly from your terminal.
 
-- Pod logs
-- Events
-- YAML manifests
-- Resource metrics
+## 🚀 Features
 
-Root causes are buried inside noisy logs, and Mean Time To Resolution (MTTR) can be high.
-This challenge becomes even more critical in production EKS environments where rapid incident triage is essential.
+### ✨ AI-powered root cause analysis
 
-## 💡 Solution Overview
+Detects common Kubernetes failures such as:
 
-**KubeSage** is an AI-powered Kubernetes debugging agent that integrates with Amazon Bedrock to perform automated root cause analysis of cluster failures.
+- 🔁 CrashLoopBackOff
+- 💥 OOMKilled
+- 📦 ImagePullBackOff
+- ⚙️ Misconfigured resources
+- 📉 Resource starvation
 
-It combines:
+### 🧠 GenAI reasoning
 
-- Real-time Kubernetes inspection
-- Structured log extraction
-- GenAI-powered reasoning
-- Risk classification and remediation suggestions
+Powered by Amazon Bedrock using:
 
-All from a lightweight CLI interface.
+- Claude 3.5 Sonnet – deep reasoning
+- Claude 3 Haiku – fast classification
 
-Instead of manually scanning logs, users can run:
+### 📊 Structured debugging results
+
+KubeSage provides:
+
+- 🔍 Root cause
+- ⚠ Risk level
+- 💡 Suggested fix
+- 📈 Confidence score
+
+### 🖥️ Developer-friendly CLI
 
 ```bash
 python cli.py --pod crashloop-app
 ```
 
-And receive:
+Example output:
 
-- 🔍 Root Cause
-- ⚠ Risk Level
-- 💡 Suggested Fix
-- 📊 Confidence Score
+![image](./assets/1.png)
+![image](./assets/2.png)
+![image](./assets/3.png)
+![image](./assets/4.png)
 
-## 🧠 How It Works (Architecture)
+## 🏗 Architecture
 
-KubeSage follows this flow:
+Below is the high-level architecture of KubeSage.
 
-```
-Kubernetes Cluster (EKS or local)
-     ↓
-Kubernetes Logs
-     ↓
-KubeSage Context Builder
-     ↓
-Strands Agent
-     ↓
-Amazon Bedrock (Claude 3.5 Sonnet)
-     ↓
-Structured Root Cause Analysis
-     ↓
-CLI Output + Optional Storage
-```
+![KubeSage](./assets/architecture.png)
 
-## AWS Services Used
+## ☁️ AWS Services Used
 
-- Amazon Bedrock – GenAI reasoning for log analysis and remediation generation
-- Amazon EKS (optional deployment target) – Kubernetes environment
-- AWS Lambda (optional extension) – Event-driven debugging automation
-- Amazon DynamoDB (optional extension) – Structured incident storage
-- Amazon S3 (optional extension) – Log archival and debugging reports
+KubeSage integrates with several AWS services:
 
-## ✨ Core Features
-
-- AI-driven root cause analysis for:
-    - CrashLoopBackOff
-    - OOMKilled
-    - ImagePullBackOff
-- Structured, type-safe debugging output
-- Risk-level classification (LOW / MEDIUM / HIGH)
-- Confidence scoring
-- Clean, rich CLI interface
-- Modular and extensible architecture
-- AWS Bedrock integration via strands
-
-## 🎯 Impact
-
-KubeSage reduces:
-
-- Manual log inspection time
-- Context-switching between tools
-- Mean Time To Resolution (MTTR)
-
-By transforming raw Kubernetes failures into actionable insights using GenAI.
+| Service                               | Purpose                               |
+| ------------------------------------- | ------------------------------------- |
+| **Amazon Bedrock**                    | LLM inference for debugging reasoning |
+| **Amazon Elastic Kubernetes Service** | Managed Kubernetes cluster            |
+| **Amazon Cloud Watch**                | Logs and Metrics                      |
+| **AWS Lambda** _(optional)_           | Event-driven debugging                |
+| **Amazon DynamoDB** _(optional)_      | Incident storage                      |
+| **Amazon S3** _(optional)_            | Log archival                          |
 
 ## ⚙️ Tech Stack
 
 ### Core
 
 - Python 3.10
-- Typer – CLI framework
-- Rich – Styled terminal outputs
-- Pydantic – Structured result modeling
-- Kubernetes Python Client – Cluster interaction
+- Typer (CLI framework)
+- Rich (terminal UI)
+- Pydantic (structured outputs)
+- Kubernetes Python Client
 
 ### GenAI
 
-- Amazon Bedrock – LLM inference
-- Claude 3.5 Sonnet (primary reasoning)
-- Claude 3 Haiku (lightweight classification)
+- Amazon Bedrock
+- Claude models from Anthropic
 
-## AWS SDK
+### AWS SDK
 
 - strands – Bedrock invocation
 
-## Installation
+## 🎯 Impact
+
+KubeSage helps engineers:
+
+- ⏱ Reduce Mean Time To Resolution (MTTR)
+- 🔍 Automatically identify failure causes
+- 🧠 Leverage GenAI-powered debugging
+- ⚡ Respond faster to production incidents
+
+## ⬇️ Installation
 
 ### 🐍 Using Conda
 
@@ -129,6 +112,20 @@ git clone https://github.com/naman22a/kubesage.git
 cd kubesage
 pip install -r requirements.txt
 ```
+
+## 📖 Full Setup Guide
+
+For complete setup instructions including:
+
+- AWS IAM configuration
+- AWS CLI installation
+- Docker installation
+- kubectl installation
+- eksctl installation
+- Creating an EKS cluster
+- Running test workloads
+
+See [examples/README.md](./examples/README.md)
 
 ## 🔐 AWS Setup (Bedrock)
 
@@ -161,6 +158,12 @@ kubesage/
 ├── environment.yml       # Conda environment
 ├── requirements.txt      # Python dependencies
 ```
+
+## 🏆 Hackathon Submission
+
+Project built for:
+
+AI for Bharat Hackathon
 
 ## 🗒️ LICENSE
 

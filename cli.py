@@ -106,10 +106,9 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
     console.rule("[bold blue]🚀 Initializing Debug Session")
 
     steps = [
-        "Fetching last 200 log lines...",
-        "Building diagnostic context...",
-        "Running analysis with LLM...",
-        "Structuring findings..."
+        ("Fetching last 200 log lines...", 0.8),
+        ("Building diagnostic context...", 0.8),
+        ("Running analysis with LLM...", 1.5),
     ]
 
     with Progress(
@@ -119,9 +118,9 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
         console=console,
     ) as progress:
 
-        for step in steps:
+        for step, time_taken in steps:
             task = progress.add_task(f"[yellow]{step}", total=None)
-            time.sleep(0.8)
+            time.sleep(time_taken)
             progress.remove_task(task)
             console.print(f"[bold green]✔[/bold green] {step}")
 
