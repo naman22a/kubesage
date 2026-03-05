@@ -2,7 +2,6 @@ import os
 import dotenv
 import io
 from contextlib import redirect_stdout
-import time
 import json
 import subprocess
 import shlex
@@ -98,13 +97,6 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
     )
     console.print()
 
-    pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
-    if not pod:
-        console.print(Panel(f'We could not find a pod named {pod_name}', title="⚠️  Pod Not found", border_style="red"))
-        return
-
-    logs_context = build_agent_context(pod)
-
     console.print(f"[bold]Pod:[/bold] {pod_name}")
     console.print(f"[bold]Namespace:[/bold] {namespace}")
     console.print()
@@ -123,29 +115,41 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
         transient=True,
         console=console,
     ) as progress:
+        
+        # fetch pod logs
+        task1 = progress.add_task("[yellow]Fetching last 200 log lines...", total=None)
+        pod = list_pod_with_logs(pod_name=pod_name, namespace=namespace)
+        if not pod:
+            console.print(Panel(f'We could not find a pod named {pod_name}', title="⚠️  Pod Not found", border_style="red"))
+            return
+        progress.remove_task(task1)
+        console.print(f"[bold green]✔[/bold green] Fetching last 200 log lines...")
 
-        for step, time_taken in steps:
-            task = progress.add_task(f"[yellow]{step}", total=None)
-            time.sleep(time_taken)
-            progress.remove_task(task)
-            console.print(f"[bold green]✔[/bold green] {step}")
+        # build agent context
+        task2 = progress.add_task("[yellow]Building diagnostic context...", total=None)
+        logs_context = build_agent_context(pod)
+        progress.remove_task(task2)
+        console.print(f"[bold green]✔[/bold green] Building diagnostic context...")
+
+        # call the LLM
+        task3 = progress.add_task("[yellow]Running analysis with LLM...", total=None)
+        prompt = f"""
+        TASK:
+        Determine why the pod is failing and recommend safe remediation.
+
+        CLUSTER LOGS:
+        {logs_context}
+        """
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            raw_output = agent(prompt)
+        data = json.loads(raw_output.message["content"][0]["text"])
+        progress.remove_task(task3)
+        console.print(f"[bold green]✔[/bold green] Running analysis with LLM...")
 
     console.rule("[bold green]✅ Analysis Complete")
     console.print()
 
-    prompt = f"""
-    TASK:
-    Determine why the pod is failing and recommend safe remediation.
-
-    CLUSTER LOGS:
-    {logs_context}
-    """
-
-    buffer = io.StringIO()
-    with redirect_stdout(buffer):
-        raw_output = agent(prompt)
-
-    data = json.loads(raw_output.message["content"][0]["text"])
     result = K8sAgentResult(**data)
 
     send_risk_alert_sns(SNS_TOPIC_ARN, result)
