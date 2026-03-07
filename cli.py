@@ -103,12 +103,6 @@ def run_analysis(pod_name: str, namespace: str, cluster_type: str, cluster_name:
 
     console.rule("[bold blue]🚀 Initializing Debug Session")
 
-    steps = [
-        ("Fetching last 200 log lines...", 0.8),
-        ("Building diagnostic context...", 0.8),
-        ("Running analysis with LLM...", 1.5),
-    ]
-
     with Progress(
         SpinnerColumn(style="cyan"),
         TextColumn("[progress.description]{task.description}"),
