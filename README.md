@@ -206,12 +206,6 @@ kubesage/
 ├── requirements.txt      # Python dependencies
 ```
 
-## 🏆 Hackathon Submission
-
-Project built for:
-
-AI for Bharat Hackathon
-
 ## 🗒️ LICENSE
 
 KubeSage is [GPL V3](./LICENSE)

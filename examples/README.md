@@ -1,7 +1,5 @@
 # 🚀 Kubesage – AI Kubernetes Debugger
 
-> 🏆 AI for Bharat Hackathon Submission
-
 An AI-powered Kubernetes debugging CLI that works with both:
 
 - 🖥️ Local clusters (Kind)
